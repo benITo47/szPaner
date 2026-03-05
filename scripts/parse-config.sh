@@ -13,11 +13,13 @@ declare -gA zone_panes           # zone_panes[zone_name]="pane1 pane2 pane3"
 declare -gA zone_working_dir     # zone_working_dir[zone_name]="/path"
 declare -gA zone_on_start        # zone_on_start[zone_name]="command"
 declare -gA zone_on_detach       # zone_on_detach[zone_name]="command"
+declare -gA zone_layout          # zone_layout[zone_name]="layout_string"
 declare -gA pane_commands        # pane_commands[zone.pane.0]="first cmd", [zone.pane.1]="second cmd"
 declare -gA pane_command_count   # pane_command_count[zone.pane]=2
 declare -gA pane_working_dir     # pane_working_dir[zone.pane]="/path"
 declare -gA pane_size            # pane_size[zone.pane]="60%"
 declare -gA pane_split           # pane_split[zone.pane]="right|down"
+declare -gA pane_split_from      # pane_split_from[zone.pane]="pane_name"
 declare -ga all_zones            # Array of zone names in order
 
 # Remove quotes from a string
@@ -143,6 +145,10 @@ parse_line() {
                 zone_on_detach[$current_zone]="$value"
                 return
                 ;;
+            layout)
+                zone_layout[$current_zone]="$value"
+                return
+                ;;
         esac
     fi
 
@@ -179,6 +185,9 @@ parse_line() {
             split)
                 pane_split[$pane_key]="$value"
                 ;;
+            split_from)
+                pane_split_from[$pane_key]="$value"
+                ;;
             *)
                 echo "Warning: unknown property '$key'" >&2
                 ;;
@@ -210,6 +219,7 @@ print_config() {
         [[ -n "${zone_working_dir[$zone]}" ]] && echo "  working_dir: ${zone_working_dir[$zone]}"
         [[ -n "${zone_on_start[$zone]}" ]] && echo "  on_start: ${zone_on_start[$zone]}"
         [[ -n "${zone_on_detach[$zone]}" ]] && echo "  on_detach: ${zone_on_detach[$zone]}"
+        [[ -n "${zone_layout[$zone]}" ]] && echo "  layout: ${zone_layout[$zone]}"
         echo "  Panes: ${zone_panes[$zone]}"
 
         for pane in ${zone_panes[$zone]}; do

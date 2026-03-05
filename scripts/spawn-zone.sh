@@ -16,7 +16,7 @@ spawn_zone() {
 
     # Find config if not specified
     if [[ -z "$config_file" ]]; then
-        for config in "$HOME/.szpaner/zones.conf" "$HOME/.config/szpaner/zones.conf" "$SCRIPT_DIR/../zones.conf"; do
+        for config in "$HOME/.config/szpaner/zones.conf" "$HOME/szpaner.conf" "$SCRIPT_DIR/../zones.conf"; do
             if [[ -f "$config" ]]; then
                 config_file="$config"
                 break
@@ -96,11 +96,33 @@ spawn_zone() {
         return 1
     fi
 
-    # First pane already exists (pane 0)
-    local current_pane_index=0
+    # Check if zone has a layout string
+    local layout_string="${zone_layout[$zone_name]}"
 
-    # Create remaining panes
-    for ((i=1; i<$pane_count; i++)); do
+    if [[ -n "$layout_string" ]]; then
+        # Layout string approach: Create panes and apply layout directly
+
+        # Create enough panes to match the layout (split from first pane)
+        for ((i=1; i<$pane_count; i++)); do
+            tmux split-window -t "$target.0" -h
+        done
+
+        # Small delay to ensure panes are created
+        sleep 0.1
+
+        # Apply the layout string
+        tmux select-layout -t "$target" "$layout_string"
+
+        # Small delay to ensure layout is applied
+        sleep 0.1
+    else
+        # Manual split approach: Create panes with specific splits and sizes
+
+        # First pane already exists (pane 0)
+        local current_pane_index=0
+
+        # Create remaining panes
+        for ((i=1; i<$pane_count; i++)); do
         local pane="${panes[$i]}"
         local pane_key="$zone_name.$pane"
         local split_dir="${pane_split[$pane_key]:-right}"
@@ -138,7 +160,8 @@ spawn_zone() {
 
         # Execute split
         eval "$split_cmd"
-    done
+        done
+    fi
 
     # Small delay to ensure panes are ready
     sleep 0.1
