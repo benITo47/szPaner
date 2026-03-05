@@ -41,10 +41,12 @@ spawn_zone() {
     if ! tmux has-session -t "$session_name" 2>/dev/null; then
         tmux new-session -d -s "$session_name" -n "$window_name"
     else
-        tmux new-window -t "$session_name" -n "$window_name"
+        tmux new-window -t "$session_name:" -n "$window_name"
     fi
 
-    local target="$session_name:$window_name"
+    # Get the actual window index that was just created
+    local window_index=$(tmux list-windows -t "$session_name" -F "#{window_index}:#{window_name}" | grep ":$window_name$" | cut -d: -f1 | tail -1)
+    local target="$session_name:$window_index"
 
     # Get panes for this zone
     local panes=(${zone_panes[$zone_name]})
