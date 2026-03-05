@@ -34,6 +34,28 @@ trim() {
     echo "$str"
 }
 
+# Validate zone name (prevent tmux keyword conflicts)
+validate_zone_name() {
+    local name="$1"
+    local tmux_keywords="new attach detach ls list kill switch source show set display run send split select resize rename move swap choose find capture save load refresh clock lock suspend paste copy delete buffer unbind bind"
+
+    # Check if zone name is a tmux keyword
+    for keyword in $tmux_keywords; do
+        if [[ "$name" == "$keyword" ]]; then
+            echo "Error: Zone name '$name' conflicts with tmux command" >&2
+            return 1
+        fi
+    done
+
+    # Check if zone name contains only valid characters
+    if [[ ! "$name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        echo "Error: Zone name '$name' contains invalid characters (use only: a-z A-Z 0-9 _ -)" >&2
+        return 1
+    fi
+
+    return 0
+}
+
 # Parse a single line
 parse_line() {
     local line="$1"
@@ -47,6 +69,12 @@ parse_line() {
     # Check for zone declaration
     if [[ "$line" =~ ^zone[[:space:]]+\"([^\"]+)\"[[:space:]]*\{? ]]; then
         current_zone="${BASH_REMATCH[1]}"
+
+        # Validate zone name
+        if ! validate_zone_name "$current_zone"; then
+            return 1
+        fi
+
         state="IN_ZONE"
         all_zones+=("$current_zone")
         zone_panes[$current_zone]=""
