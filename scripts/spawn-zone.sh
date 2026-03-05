@@ -35,7 +35,25 @@ spawn_zone() {
         return 1
     fi
 
-    local window_name="$zone_name"
+    # Find next available number for this zone
+    local existing_windows=$(tmux list-windows -t "$session_name" 2>/dev/null -F "#{window_name}" | grep "^${zone_name}\(-[0-9]\+\)\?$" || echo "")
+    local max_num=0
+
+    while IFS= read -r win; do
+        if [[ "$win" == "$zone_name" ]]; then
+            max_num=1
+        elif [[ "$win" =~ ^${zone_name}-([0-9]+)$ ]]; then
+            local num="${BASH_REMATCH[1]}"
+            [[ $num -gt $max_num ]] && max_num=$num
+        fi
+    done <<< "$existing_windows"
+
+    # Generate window name
+    if [[ $max_num -eq 0 ]]; then
+        local window_name="$zone_name"
+    else
+        local window_name="$zone_name-$((max_num + 1))"
+    fi
 
     # Create a new session or window
     if ! tmux has-session -t "$session_name" 2>/dev/null; then
@@ -44,8 +62,8 @@ spawn_zone() {
         tmux new-window -t "$session_name:" -n "$window_name"
     fi
 
-    # Get the actual window index that was just created
-    local window_index=$(tmux list-windows -t "$session_name" -F "#{window_index}:#{window_name}" | grep ":$window_name$" | cut -d: -f1 | tail -1)
+    # Get the window index that was just created (it's the last one)
+    local window_index=$(tmux list-windows -t "$session_name" -F "#{window_index}" | tail -1)
     local target="$session_name:$window_index"
 
     # Get panes for this zone
