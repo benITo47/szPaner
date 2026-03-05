@@ -12,7 +12,17 @@ source "$SCRIPT_DIR/parse-config.sh"
 spawn_zone() {
     local zone_name="$1"
     local session_name="${2:-szpaner}"
-    local config_file="${3:-$SCRIPT_DIR/../examples/dev.conf}"
+    local config_file="${3:-}"
+
+    # Find config if not specified
+    if [[ -z "$config_file" ]]; then
+        for config in "$HOME/.szpaner/zones.conf" "$HOME/.config/szpaner/zones.conf" "$SCRIPT_DIR/../zones.conf"; do
+            if [[ -f "$config" ]]; then
+                config_file="$config"
+                break
+            fi
+        done
+    fi
 
     # Parse the config file
     if ! parse_config_file "$config_file"; then
@@ -55,11 +65,22 @@ spawn_zone() {
         local window_name="$zone_name-$((max_num + 1))"
     fi
 
-    # Create a new session or window
+    # Get zone working directory
+    local zone_dir="${zone_working_dir[$zone_name]}"
+
+    # Create a new session or window with working directory
     if ! tmux has-session -t "$session_name" 2>/dev/null; then
-        tmux new-session -d -s "$session_name" -n "$window_name"
+        if [[ -n "$zone_dir" ]]; then
+            tmux new-session -d -s "$session_name" -n "$window_name" -c "$zone_dir"
+        else
+            tmux new-session -d -s "$session_name" -n "$window_name"
+        fi
     else
-        tmux new-window -t "$session_name:" -n "$window_name"
+        if [[ -n "$zone_dir" ]]; then
+            tmux new-window -t "$session_name:" -n "$window_name" -c "$zone_dir"
+        else
+            tmux new-window -t "$session_name:" -n "$window_name"
+        fi
     fi
 
     # Get the window index that was just created (it's the last one)
@@ -96,8 +117,17 @@ spawn_zone() {
                 ;;
         esac
 
+        # Get pane working directory (overrides zone working_dir)
+        local pane_dir="${pane_working_dir[$pane_key]}"
+        [[ -z "$pane_dir" ]] && pane_dir="$zone_dir"
+
         # Build split command
         local split_cmd="tmux split-window -t \"$target\" $split_flag"
+
+        # Add working directory if specified
+        if [[ -n "$pane_dir" ]]; then
+            split_cmd+=" -c \"$pane_dir\""
+        fi
 
         # Add size if specified
         if [[ -n "$size" ]]; then
@@ -116,17 +146,35 @@ spawn_zone() {
     # Get actual pane indices (respects base-index setting)
     local pane_indices=($(tmux list-panes -t "$target" -F "#{pane_index}"))
 
-    # Send commands to panes
+    # Send commands to panes (supports multiple execute statements)
     for ((i=0; i<$pane_count; i++)); do
         local pane="${panes[$i]}"
         local pane_key="$zone_name.$pane"
-        local command="${pane_command[$pane_key]}"
         local actual_index="${pane_indices[$i]}"
 
-        if [[ -n "$command" ]]; then
-            tmux send-keys -t "$target.$actual_index" "$command" C-m
-        fi
+        # Execute all commands for this pane
+        local cmd_count=${pane_command_count[$pane_key]:-0}
+        for ((j=0; j<cmd_count; j++)); do
+            local command="${pane_commands[$pane_key.$j]}"
+            if [[ -n "$command" ]]; then
+                tmux send-keys -t "$target.$actual_index" "$command" C-m
+            fi
+        done
     done
+
+    # Execute on_start hook if defined
+    local on_start_cmd="${zone_on_start[$zone_name]}"
+    if [[ -n "$on_start_cmd" ]]; then
+        # Execute in the first pane
+        tmux send-keys -t "$target.${pane_indices[0]}" "$on_start_cmd" C-m
+    fi
+
+    # Set up on_detach hook if defined
+    local on_detach_cmd="${zone_on_detach[$zone_name]}"
+    if [[ -n "$on_detach_cmd" ]]; then
+        # Set a window-specific hook for when client detaches
+        tmux set-hook -t "$target" client-detached "run-shell '$on_detach_cmd'"
+    fi
 
     # Select the first pane
     tmux select-pane -t "$target.${pane_indices[0]}"

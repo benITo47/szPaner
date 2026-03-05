@@ -12,7 +12,7 @@ if [[ -z "$zone_name" ]]; then
     # No zone specified - show available zones
     source "$SCRIPT_DIR/scripts/parse-config.sh"
 
-    for config in "$HOME/.szpaner/zones.conf" "$HOME/.config/szpaner/zones.conf" "$SCRIPT_DIR/zones.conf" "$SCRIPT_DIR/examples/dev.conf"; do
+    for config in "$HOME/.szpaner/zones.conf" "$HOME/.config/szpaner/zones.conf" "$SCRIPT_DIR/zones.conf"; do
         if [[ -f "$config" ]]; then
             parse_config_file "$config" 2>/dev/null
             break
