@@ -20,12 +20,17 @@ set -g @plugin 'benito47/szpaner'
 
 2. Install with `Prefix + I`
 
-3. **For `tmux zoneName` support**, add to your shell config (`~/.bashrc` or `~/.zshrc`):
+3. **For `tmux zoneName` support**, run the install script:
 ```bash
-export PATH="$PATH:~/.tmux/plugins/szpaner/bin"
+~/.tmux/plugins/szpaner/install.sh
 ```
 
-That's it! Reload your shell and you're ready.
+Or add manually to shell config (`~/.bashrc` or `~/.zshrc`):
+```bash
+export PATH="~/.tmux/plugins/szpaner/bin:$PATH"  # Must be prepended!
+```
+
+Reload your shell and you're ready.
 
 ### Manual Installation
 
