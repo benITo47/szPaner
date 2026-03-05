@@ -1,0 +1,12 @@
+# OS files
+.DS_Store
+*.swp
+*.swo
+*~
+
+# User configs (examples are tracked)
+zones.conf
+
+# Test/debug sessions
+debug-*
+test-session*
