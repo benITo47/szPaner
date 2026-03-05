@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$SCRIPT_DIR/scripts/parse-config.sh"
 
 # Find config
-for config in "$HOME/.config/szpaner/zones.conf" "$HOME/szpaner.conf" "$SCRIPT_DIR/zones.conf"; do
+for config in "$HOME/.config/szpaner/zones.conf" "$HOME/szpaner.conf"; do
     if [[ -f "$config" ]]; then
         parse_config_file "$config" 2>/dev/null
         break

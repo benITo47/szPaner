@@ -16,7 +16,7 @@ spawn_zone() {
 
     # Find config if not specified
     if [[ -z "$config_file" ]]; then
-        for config in "$HOME/.config/szpaner/zones.conf" "$HOME/szpaner.conf" "$SCRIPT_DIR/../zones.conf"; do
+        for config in "$HOME/.config/szpaner/zones.conf" "$HOME/szpaner.conf"; do
             if [[ -f "$config" ]]; then
                 config_file="$config"
                 break
@@ -222,7 +222,7 @@ show_usage() {
     echo "Examples:"
     echo "  $0 dev"
     echo "  $0 servers my-session"
-    echo "  $0 dev my-session ~/.szpaner/custom.conf"
+    echo "  $0 dev my-session ~/.config/szpaner/zones.conf"
 }
 
 # Run if executed directly

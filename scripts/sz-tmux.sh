@@ -12,7 +12,7 @@ current_session="$(tmux display-message -p '#S')"
 source "$SCRIPT_DIR/scripts/parse-config.sh"
 
 config_file=""
-for config in "$HOME/.szpaner/zones.conf" "$HOME/.config/szpaner/zones.conf" "$SCRIPT_DIR/zones.conf"; do
+for config in "$HOME/.config/szpaner/zones.conf" "$HOME/szpaner.conf"; do
     if [[ -f "$config" ]]; then
         config_file="$config"
         parse_config_file "$config" 2>/dev/null
@@ -21,7 +21,7 @@ for config in "$HOME/.szpaner/zones.conf" "$HOME/.config/szpaner/zones.conf" "$S
 done
 
 if [[ -z "$config_file" ]]; then
-    tmux display-message "No config found. Create ~/.szpaner/zones.conf"
+    tmux display-message "No config found. Create ~/.config/szpaner/zones.conf"
     exit 0
 fi
 

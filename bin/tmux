@@ -37,7 +37,7 @@ if [[ "$1" =~ ^[a-zA-Z0-9_-]+$ ]]; then
     source "$SCRIPT_DIR/scripts/parse-config.sh"
 
     # Find config
-    for config in "$HOME/.szpaner/zones.conf" "$HOME/.config/szpaner/zones.conf" "$SCRIPT_DIR/zones.conf"; do
+    for config in "$HOME/.config/szpaner/zones.conf" "$HOME/szpaner.conf"; do
         if [[ -f "$config" ]]; then
             if parse_config_file "$config" 2>/dev/null; then
                 # Check if it's a zone
