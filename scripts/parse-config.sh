@@ -133,12 +133,15 @@ parse_line() {
         case "$key" in
             working_dir)
                 zone_working_dir[$current_zone]="$value"
+                return
                 ;;
             on_start)
                 zone_on_start[$current_zone]="$value"
+                return
                 ;;
             on_detach)
                 zone_on_detach[$current_zone]="$value"
+                return
                 ;;
         esac
     fi
@@ -204,12 +207,22 @@ print_config() {
 
     for zone in "${all_zones[@]}"; do
         echo "Zone: $zone"
+        [[ -n "${zone_working_dir[$zone]}" ]] && echo "  working_dir: ${zone_working_dir[$zone]}"
+        [[ -n "${zone_on_start[$zone]}" ]] && echo "  on_start: ${zone_on_start[$zone]}"
+        [[ -n "${zone_on_detach[$zone]}" ]] && echo "  on_detach: ${zone_on_detach[$zone]}"
         echo "  Panes: ${zone_panes[$zone]}"
 
         for pane in ${zone_panes[$zone]}; do
             local pane_key="$zone.$pane"
             echo "    Pane: $pane"
-            [[ -n "${pane_command[$pane_key]}" ]] && echo "      execute: ${pane_command[$pane_key]}"
+
+            # Show all execute commands
+            local cmd_count=${pane_command_count[$pane_key]:-0}
+            for ((i=0; i<cmd_count; i++)); do
+                echo "      execute: ${pane_commands[$pane_key.$i]}"
+            done
+
+            [[ -n "${pane_working_dir[$pane_key]}" ]] && echo "      working_dir: ${pane_working_dir[$pane_key]}"
             [[ -n "${pane_size[$pane_key]}" ]] && echo "      size: ${pane_size[$pane_key]}"
             [[ -n "${pane_split[$pane_key]}" ]] && echo "      split: ${pane_split[$pane_key]}"
         done
