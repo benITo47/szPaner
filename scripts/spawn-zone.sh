@@ -1,13 +1,43 @@
 #!/usr/bin/env bash
 
 # szPaner - Spawn Zone Paner
-# Creates a tmux window with predefined panes and commands
+# Creates a tmux window with predefined panes and commands from config
 
-create_dev_zone() {
-    local session_name="${1:-szpaner}"
-    local window_name="dev-zone"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-    # Create a new window or use existing session
+# Source the config parser
+source "$SCRIPT_DIR/parse-config.sh"
+
+# Create a zone from parsed config
+spawn_zone() {
+    local zone_name="$1"
+    local session_name="${2:-szpaner}"
+    local config_file="${3:-$SCRIPT_DIR/../examples/dev.conf}"
+
+    # Parse the config file
+    if ! parse_config_file "$config_file"; then
+        echo "Error: Failed to parse config file: $config_file" >&2
+        return 1
+    fi
+
+    # Check if zone exists
+    local zone_exists=false
+    for zone in "${all_zones[@]}"; do
+        if [[ "$zone" == "$zone_name" ]]; then
+            zone_exists=true
+            break
+        fi
+    done
+
+    if ! $zone_exists; then
+        echo "Error: Zone '$zone_name' not found in config" >&2
+        echo "Available zones: ${all_zones[*]}" >&2
+        return 1
+    fi
+
+    local window_name="$zone_name"
+
+    # Create a new session or window
     if ! tmux has-session -t "$session_name" 2>/dev/null; then
         tmux new-session -d -s "$session_name" -n "$window_name"
     else
@@ -16,39 +46,72 @@ create_dev_zone() {
 
     local target="$session_name:$window_name"
 
-    # Get the first pane ID
-    local main_pane=$(tmux list-panes -t "$target" -F "#{pane_id}" | head -1)
+    # Get panes for this zone
+    local panes=(${zone_panes[$zone_name]})
+    local pane_count=${#panes[@]}
 
-    # Split vertically (left/right) - 60/40 split
-    tmux split-window -t "$target" -h -p 40
+    if [[ $pane_count -eq 0 ]]; then
+        echo "Error: Zone '$zone_name' has no panes defined" >&2
+        return 1
+    fi
 
-    # Split the right pane horizontally (top/bottom)
-    tmux split-window -t "$target" -v -p 50
+    # First pane already exists (pane 0)
+    local current_pane_index=0
 
-    # Now we have 3 panes:
-    # [0] - main (left, 60%)
-    # [1] - top right (20%)
-    # [2] - bottom right (20%)
+    # Create remaining panes
+    for ((i=1; i<$pane_count; i++)); do
+        local pane="${panes[$i]}"
+        local pane_key="$zone_name.$pane"
+        local split_dir="${pane_split[$pane_key]:-right}"
+        local size="${pane_size[$pane_key]}"
 
-    # Send commands to panes (with a small delay to ensure panes are ready)
+        # Convert split direction to tmux flags
+        local split_flag="-h"  # horizontal split (left/right)
+        case "$split_dir" in
+            down|bottom)
+                split_flag="-v"  # vertical split (top/bottom)
+                ;;
+            right|left)
+                split_flag="-h"
+                ;;
+        esac
+
+        # Build split command
+        local split_cmd="tmux split-window -t \"$target\" $split_flag"
+
+        # Add size if specified
+        if [[ -n "$size" ]]; then
+            # Remove % if present and use as percentage
+            local size_num="${size%\%}"
+            split_cmd+=" -p $size_num"
+        fi
+
+        # Execute split
+        eval "$split_cmd"
+    done
+
+    # Small delay to ensure panes are ready
     sleep 0.1
 
-    # Pane 0: Main editor area
-    tmux send-keys -t "$target.0" "echo 'Main pane - ready for editor'" C-m
-    tmux send-keys -t "$target.0" "# Try: vim, nvim, or whatever you like" C-m
+    # Get actual pane indices (respects base-index setting)
+    local pane_indices=($(tmux list-panes -t "$target" -F "#{pane_index}"))
 
-    # Pane 1: Top right - could be for server/build
-    tmux send-keys -t "$target.1" "echo 'Top right - server pane'" C-m
-    tmux send-keys -t "$target.1" "# Try: npm run dev, python -m http.server, etc" C-m
+    # Send commands to panes
+    for ((i=0; i<$pane_count; i++)); do
+        local pane="${panes[$i]}"
+        local pane_key="$zone_name.$pane"
+        local command="${pane_command[$pane_key]}"
+        local actual_index="${pane_indices[$i]}"
 
-    # Pane 2: Bottom right - logs/monitoring
-    tmux send-keys -t "$target.2" "echo 'Bottom right - logs/monitor pane'" C-m
-    tmux send-keys -t "$target.2" "# Try: tail -f, htop, etc" C-m
+        if [[ -n "$command" ]]; then
+            tmux send-keys -t "$target.$actual_index" "$command" C-m
+        fi
+    done
 
-    # Select the main pane
-    tmux select-pane -t "$target.0"
+    # Select the first pane
+    tmux select-pane -t "$target.${pane_indices[0]}"
 
-    # Attach if not already in tmux
+    # Attach or switch to session
     if [ -z "$TMUX" ]; then
         tmux attach-session -t "$session_name"
     else
@@ -56,7 +119,27 @@ create_dev_zone() {
     fi
 }
 
+# Show usage
+show_usage() {
+    echo "Usage: $0 <zone-name> [session-name] [config-file]"
+    echo ""
+    echo "Arguments:"
+    echo "  zone-name    Name of the zone to spawn (required)"
+    echo "  session-name Tmux session name (default: szpaner)"
+    echo "  config-file  Config file path (default: examples/dev.conf)"
+    echo ""
+    echo "Examples:"
+    echo "  $0 dev"
+    echo "  $0 servers my-session"
+    echo "  $0 dev my-session ~/.szpaner/custom.conf"
+}
+
 # Run if executed directly
 if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
-    create_dev_zone "$@"
+    if [[ $# -eq 0 || "$1" == "-h" || "$1" == "--help" ]]; then
+        show_usage
+        exit 0
+    fi
+
+    spawn_zone "$@"
 fi
