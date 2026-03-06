@@ -13,7 +13,7 @@ tmux bind-key Z command-prompt -p "spawn zone:" "run-shell '$CURRENT_DIR/scripts
 tmux bind-key S command-prompt -p "save zone as:" "run-shell '$CURRENT_DIR/scripts/save-zone.sh \"%%\"'"
 
 # Also set up :sz as a simpler alias that just lists zones
-tmux set-option -gq command-alias[100] "sz=display-message '#($CURRENT_DIR/scripts/list-zones.sh)'"
+tmux set-option -gq command-alias[100] "sz=run-shell '$CURRENT_DIR/scripts/list-zones.sh'"
 
 # Set up :sz-save command alias for saving zones
 tmux set-option -gq command-alias[101] "sz-save=command-prompt -p 'save zone as:' 'run-shell \"$CURRENT_DIR/scripts/save-zone.sh %%\"'"
