@@ -42,358 +42,66 @@ zone "zone-name" {
 
 ## Zone Properties
 
-### `working_dir`
-
-Default working directory for all panes in this zone.
-
-```
-zone "myproject" {
-    working_dir "/Users/you/projects/myapp"
-
-    pane "editor" {
-        execute "nvim"
-    }
-    # Opens nvim in /Users/you/projects/myapp
-}
-```
-
-**Notes:**
-- Pane-level `working_dir` overrides zone-level
-- Use absolute paths
-- Tilde `~` expansion works
-
-### `layout`
-
-Tmux layout string for pixel-perfect pane recreation.
-
-```
-zone "saved-layout" {
-    layout "c25d,159x41,0,0{79x41,0,0,0,79x41,80,0,1}"
-
-    pane "pane0" { execute "echo left" }
-    pane "pane1" { execute "echo right" }
-}
-```
-
-**How to get layout strings:**
-1. Arrange panes manually in tmux
-2. Press `Prefix+S` to save (auto-captures layout)
-3. Or manually: `tmux list-windows -F "#{window_layout}"`
-
-**When present:**
-- Layout string takes precedence over manual `split` and `size`
-- Panes created instantly, layout applied exactly
-- **Fastest and most accurate method**
-
-**When absent:**
-- Falls back to manual split creation (see `split` and `size`)
-
-### `on_start`
-
-Command to run after zone is created.
-
-```
-zone "dev" {
-    on_start "echo 'Development zone started'"
-
-    pane "editor" { execute "nvim" }
-}
-```
-
-**Notes:**
-- Runs in the first pane
-- Executes after all panes are created and commands sent
-- Good for initialization scripts
-
-### `on_detach`
-
-Command to run when client detaches from this window.
-
-```
-zone "servers" {
-    on_detach "pkill -f 'npm run dev'"
-
-    pane "server" { execute "npm run dev" }
-}
-```
-
-**Notes:**
-- Uses tmux hooks (`client-detached`)
-- Good for cleanup tasks
-- Only runs when detaching, not when killing window
+| Property | Description | Example |
+|----------|-------------|---------|
+| `working_dir` | Default directory for all panes | `working_dir "/Users/you/project"` |
+| `layout` | Tmux layout string (from Prefix+S) | `layout "c25d,159x41,0,0{...}"` |
+| `on_start` | Runs after zone spawns (in first pane) | `on_start "docker-compose up -d"` |
+| `on_detach` | Runs when detaching from window | `on_detach "pkill -f 'npm'"` |
 
 ## Pane Properties
 
-### `execute`
+| Property | Description | When Used | Example |
+|----------|-------------|-----------|---------|
+| `execute` | Command to run (can repeat) | Always | `execute "nvim"` |
+| `working_dir` | Directory for this pane | Overrides zone-level | `working_dir "~/frontend"` |
+| `split` | Split direction: `right`, `down` | Manual splits only | `split "right"` |
+| `size` | Percentage of split | Manual splits only | `size 60%` |
 
-Command to run in this pane.
+**Note:** `split` and `size` are ignored when zone has a `layout` string.
 
-**Single command:**
+## Layout Strings vs Manual Splits
+
+**Layout string** (from `Prefix+S`):
 ```
-pane "editor" {
-    execute "nvim"
-}
+layout "c25d,159x41,0,0{79x41,0,0,0,79x41,80,0,1}"
 ```
+- Pixel-perfect recreation
+- Fastest spawning
+- Use for complex layouts (3+ panes)
 
-**Multiple commands:**
+**Manual splits** (with `split` and `size`):
 ```
-pane "setup" {
-    execute "export API_KEY=secret123"
-    execute "cd backend"
-    execute "npm run dev"
-}
+pane "left" { size 60% }
+pane "right" { split "right" }
 ```
+- Flexible, adapts to terminal size
+- Readable config
+- Use for simple 2-pane layouts
 
-**Notes:**
-- Commands run in order
-- Each command is sent with Enter (C-m)
-- Can use shell features: pipes, redirects, etc.
-- For interactive programs (nvim, ssh), last command should be the program
-
-**Examples:**
-```
-pane "ssh" {
-    execute "ssh user@prod.example.com"
-}
-
-pane "logs" {
-    execute "tail -f /var/log/app.log | grep ERROR"
-}
-
-pane "multi" {
-    execute "source venv/bin/activate"
-    execute "python manage.py runserver"
-}
-```
-
-### `working_dir`
-
-Working directory for this pane (overrides zone-level).
+## Complete Example
 
 ```
-zone "fullstack" {
-    working_dir "/Users/you/projects/myapp"
+# ~/.config/szpaner/zones.conf
 
-    pane "frontend" {
-        working_dir "/Users/you/projects/myapp/frontend"
-        execute "npm run dev"
-    }
-
-    pane "backend" {
-        working_dir "/Users/you/projects/myapp/backend"
-        execute "go run main.go"
-    }
-}
-```
-
-**Notes:**
-- Pane-level overrides zone-level
-- Each pane can have its own directory
-- Paths are evaluated when pane is created
-
-### `split`
-
-Split direction for this pane (manual split mode only).
-
-**Values:**
-- `right` or `left` - Horizontal split (side-by-side)
-- `down` or `bottom` - Vertical split (top-bottom)
-
-**Default:** `right`
-
-```
-zone "three-panes" {
-    pane "editor" {
-        # First pane, no split needed
-    }
-
-    pane "terminal" {
-        split "right"  # Splits to the right of editor
-    }
-
-    pane "logs" {
-        split "down"  # Splits below terminal
-    }
-}
-```
-
-**Notes:**
-- Only used when zone has NO `layout` property
-- Ignored if layout string present
-- Determines split direction, not target pane (splits from pane 0)
-
-### `size`
-
-Size of the pane as percentage (manual split mode only).
-
-```
-pane "editor" {
-    size 60%  # Takes 60% of space
-}
-
-pane "terminal" {
-    size 30%  # Takes 30% of remaining space
-    split "right"
-}
-```
-
-**Notes:**
-- Only used when zone has NO `layout` property
-- Can be written as `60%` or `60`
-- Percentage is relative to the split being made
-- Ignored if layout string present
-
-### `split_from`
-
-**(Future feature - parsed but not yet implemented)**
-
-Target pane to split from.
-
-```
-pane "main" {
-    # First pane
-}
-
-pane "sidebar" {
-    split "right"
-    split_from "main"
-}
-
-pane "bottom" {
-    split "down"
-    split_from "main"
-}
-```
-
-## Layout Strings
-
-### What Are They?
-
-Tmux layout strings encode exact pane positions and sizes:
-```
-"c25d,159x41,0,0{79x41,0,0,0,79x41,80,0,1}"
-```
-
-**They contain:**
-- Checksum (`c25d`)
-- Window dimensions (`159x41`)
-- Pane tree structure (`{...}`)
-- Each pane's position and size
-
-### How to Get Them
-
-**Method 1: Save current window (recommended)**
-```
-Prefix+S
-Enter zone name
-```
-Layout string automatically captured.
-
-**Method 2: Manual extraction**
-```bash
-tmux list-windows -F "#{window_layout}"
-```
-
-**Method 3: Copy from tmux**
-```
-:display-message "#{window_layout}"
-```
-
-### When to Use
-
-**Use layout strings when:**
-- You want pixel-perfect recreation
-- You've manually arranged panes
-- You have complex layouts (3+ panes)
-- You want fastest spawning
-
-**Use manual splits when:**
-- Simple 2-pane layouts
-- You want flexible sizing (adapts to terminal size)
-- You're writing config by hand
-
-### Example Comparison
-
-**With layout string (exact):**
-```
-zone "saved" {
-    layout "c25d,159x41,0,0{79x41,0,0,0,79x41,80,0,1}"
-
-    pane "pane0" { execute "nvim" }
-    pane "pane1" { execute "htop" }
-}
-# Result: Exact 79x41 and 79x41 panes, always
-```
-
-**Without layout string (flexible):**
-```
-zone "manual" {
-    pane "editor" {
-        execute "nvim"
-        size 50%
-    }
-
-    pane "monitor" {
-        execute "htop"
-        split "right"
-    }
-}
-# Result: Adapts to current window size
-```
-
-## Complete Examples
-
-### 1. Simple Development Zone
-
-```
+# Simple two-pane: editor + server
 zone "dev" {
     pane "editor" {
         execute "nvim"
-        size 60%
+        size 60%                    # Takes 60% of window width
     }
 
     pane "server" {
         execute "npm run dev"
-        split "right"
-    }
-
-    pane "logs" {
-        execute "tail -f logs/app.log"
-        split "down"
+        split "right"               # Splits to the right of previous pane
     }
 }
-```
 
-**Result:** Editor (60% left), server (40% top-right), logs (bottom-right)
-
-### 2. SSH Server Monitoring
-
-```
-zone "servers" {
-    pane "prod" {
-        execute "ssh admin@prod.example.com"
-        size 50%
-    }
-
-    pane "staging" {
-        execute "ssh admin@staging.example.com"
-        split "right"
-        size 50%
-    }
-
-    pane "local" {
-        execute "htop"
-        split "down"
-    }
-}
-```
-
-### 3. Full-Stack Development
-
-```
+# Full-stack with per-pane directories
 zone "fullstack" {
-    working_dir "/Users/you/projects/myapp"
-    on_start "echo 'Starting fullstack environment...'"
+    working_dir "/Users/you/projects/myapp"  # Default for all panes
+    on_start "echo 'Environment ready'"      # Runs after zone spawns
+    on_detach "pkill -f 'npm run dev'"       # Cleanup on detach
 
     pane "editor" {
         execute "nvim"
@@ -401,7 +109,7 @@ zone "fullstack" {
     }
 
     pane "frontend" {
-        working_dir "/Users/you/projects/myapp/frontend"
+        working_dir "/Users/you/projects/myapp/frontend"  # Overrides zone-level
         execute "npm run dev"
         split "right"
     }
@@ -409,74 +117,56 @@ zone "fullstack" {
     pane "backend" {
         working_dir "/Users/you/projects/myapp/backend"
         execute "go run main.go"
-        split "down"
-    }
-
-    pane "db" {
-        execute "psql myapp_dev"
-        split "down"
+        split "down"                # Splits below frontend pane
     }
 }
-```
 
-### 4. Saved Layout (Prefix+S generated)
+# Multi-command pane setup
+zone "python-dev" {
+    working_dir "~/projects/ml"
 
-```
-# Saved zone: mywork (2026-03-06)
+    pane "jupyter" {
+        execute "source venv/bin/activate"  # Multiple execute = run in sequence
+        execute "export CUDA_VISIBLE_DEVICES=0"
+        execute "jupyter lab"
+        size 70%
+    }
+
+    pane "terminal" {
+        execute "source venv/bin/activate"
+        execute "ipython"
+        split "right"
+    }
+}
+
+# Saved layout - generated by Prefix+S
 zone "mywork" {
     layout "9e3a,255x64,0,0{127x64,0,0,0,127x64,128,0[127x32,128,0,1,127x31,128,33,2]}"
 
     pane "pane0" {
-        working_dir "/Users/you/projects/current"
+        working_dir "/Users/you/current-project"
         execute "nvim src/main.rs"
     }
 
     pane "pane1" {
-        working_dir "/Users/you/projects/current"
+        working_dir "/Users/you/current-project"
         execute "cargo watch -x run"
     }
 
     pane "pane2" {
-        working_dir "/Users/you/projects/current"
+        working_dir "/Users/you/current-project"
         execute "git status"
     }
 }
-```
 
-**Perfect recreation of saved state.**
-
-### 5. Database Administration
-
-```
-zone "db-admin" {
-    pane "prod-db" {
-        execute "psql -h prod.db.example.com -U admin production"
-        size 50%
-    }
-
-    pane "dev-db" {
-        execute "psql -h localhost -U dev development"
-        split "right"
-    }
-
-    pane "queries" {
-        working_dir "/Users/you/sql-scripts"
-        execute "nvim queries.sql"
-        split "down"
-    }
-}
-```
-
-### 6. Docker Development
-
-```
-zone "docker-dev" {
-    working_dir "/Users/you/projects/dockerapp"
-    on_start "docker-compose up -d"
-    on_detach "docker-compose down"
+# Docker environment with lifecycle hooks
+zone "docker" {
+    working_dir "~/projects/dockerapp"
+    on_start "docker-compose up -d"     # Start containers on spawn
+    on_detach "docker-compose down"     # Stop containers on detach
 
     pane "editor" {
-        execute "nvim"
+        execute "nvim docker-compose.yml"
         size 60%
     }
 
@@ -490,271 +180,112 @@ zone "docker-dev" {
         split "down"
     }
 }
-```
 
-### 7. Multi-Service Monitoring
-
-```
-zone "monitoring" {
-    pane "nginx" {
-        execute "tail -f /var/log/nginx/access.log"
+# SSH monitoring - multiple servers
+zone "servers" {
+    pane "prod" {
+        execute "ssh admin@prod.example.com"
+        size 50%
     }
 
-    pane "app" {
-        execute "tail -f /var/log/myapp/app.log"
+    pane "staging" {
+        execute "ssh admin@staging.example.com"
         split "right"
     }
 
-    pane "db" {
-        execute "tail -f /var/log/postgresql/postgresql.log"
-        split "down"
-    }
-
-    pane "system" {
+    pane "local" {
         execute "htop"
         split "down"
     }
 }
 ```
 
-### 8. Python Data Science
+### Key Insights
 
-```
-zone "jupyter" {
-    working_dir "/Users/you/notebooks"
+**Layout strings vs manual splits:**
+- Layout string = exact recreation, pixel-perfect
+- Manual splits = flexible, adapts to terminal size
+- Use `Prefix+S` to capture layouts automatically
+- Layout strings ignore `split` and `size` properties
 
-    pane "jupyter" {
-        execute "source venv/bin/activate"
-        execute "jupyter lab"
-        size 70%
-    }
+**Working directories:**
+- Zone-level `working_dir` applies to all panes
+- Pane-level overrides zone-level
+- Useful for monorepos with frontend/backend splits
 
-    pane "terminal" {
-        execute "source venv/bin/activate"
-        execute "ipython"
-        split "right"
-    }
+**Multiple execute commands:**
+- Run in sequence, each with Enter (C-m)
+- Great for activating environments before running commands
+- Last command should be the long-running process
 
-    pane "files" {
-        execute "ls -la"
-        split "down"
-    }
-}
-```
+**Lifecycle hooks:**
+- `on_start` runs after all panes created (in first pane)
+- `on_detach` uses tmux hooks, runs on client disconnect
+- Perfect for docker-compose up/down, cleanup scripts
+
+**Pane naming:**
+- When using `layout` strings, panes named `pane0`, `pane1`, etc.
+- When manual splits, use descriptive names
+- Names are for config readability, not visible in tmux
+
+**Split behavior:**
+- First pane has no `split` (it's the initial pane)
+- Subsequent panes split from pane 0
+- `split "right"` creates horizontal split (side-by-side)
+- `split "down"` creates vertical split (top-bottom)
+- `size` is percentage of the split being made
 
 ## Best Practices
 
-### 1. Use Layout Strings for Complex Layouts
+**For complex layouts (3+ panes):**
+- Create layout manually in tmux
+- Press `Prefix+S` to save
+- Don't try to manually calculate split percentages
 
-**Don't:**
-```
-zone "complex" {
-    pane "one" { size 33% }
-    pane "two" { split "right"; size 50% }
-    pane "three" { split "down"; size 25% }
-    pane "four" { split "right"; size 40% }
-}
-```
+**For simple layouts (2 panes):**
+- Manual splits with `size` work fine
+- More readable config
+- Adapts to different terminal sizes
 
-**Do:**
-```
-# Create manually, then: Prefix+S
-zone "complex" {
-    layout "abc123,..."
-    pane "one" { execute "..." }
-    pane "two" { execute "..." }
-    pane "three" { execute "..." }
-    pane "four" { execute "..." }
-}
-```
+**Zone-level vs pane-level working_dir:**
+- Set once at zone level if all panes share same base directory
+- Override at pane level for monorepo subdirectories
+- Avoids repetition
 
-### 2. Use Zone-Level working_dir
+**Multiple execute commands:**
+- Use for environment activation: `source venv/bin/activate`
+- Use for exports: `export API_KEY=xyz`
+- Last command should be the long-running process
+- Don't chain with `&&` - use separate `execute` lines
 
-**Don't:**
-```
-zone "myapp" {
-    pane "one" {
-        working_dir "/Users/you/projects/myapp"
-        execute "nvim"
-    }
-    pane "two" {
-        working_dir "/Users/you/projects/myapp"
-        execute "npm run dev"
-    }
-}
-```
+**Lifecycle hooks:**
+- `on_start` for initialization: welcome messages, docker-compose up
+- `on_detach` for cleanup: kill processes, docker-compose down
+- Good for preventing zombie processes
 
-**Do:**
-```
-zone "myapp" {
-    working_dir "/Users/you/projects/myapp"
+## Quick Tips
 
-    pane "one" { execute "nvim" }
-    pane "two" { execute "npm run dev" }
-}
-```
-
-### 3. Name Zones Descriptively
-
-**Don't:**
-```
-zone "a" { ... }
-zone "temp" { ... }
-zone "x1" { ... }
-```
-
-**Do:**
-```
-zone "frontend-dev" { ... }
-zone "api-debug" { ... }
-zone "db-admin" { ... }
-```
-
-### 4. Use Multiple Execute for Setup
-
-**Don't:**
-```
-pane "app" {
-    execute "source venv/bin/activate && cd backend && python manage.py runserver"
-}
-```
-
-**Do:**
-```
-pane "app" {
-    execute "source venv/bin/activate"
-    execute "cd backend"
-    execute "python manage.py runserver"
-}
-```
-
-### 5. Comment Your Zones
-
-```
-# Frontend development - React + Vite
-zone "frontend" {
-    working_dir "~/projects/myapp/frontend"
-
-    # Main editor pane
-    pane "editor" {
-        execute "nvim src/App.tsx"
-    }
-
-    # Dev server with HMR
-    pane "vite" {
-        execute "npm run dev"
-        split "right"
-    }
-}
-```
-
-### 6. Use on_detach for Cleanup
-
-**For background services:**
-```
-zone "backend" {
-    on_detach "pkill -f 'python manage.py runserver'"
-
-    pane "server" {
-        execute "python manage.py runserver"
-    }
-}
-```
-
-**For docker:**
-```
-zone "containers" {
-    on_start "docker-compose up -d"
-    on_detach "docker-compose down"
-
-    pane "logs" {
-        execute "docker-compose logs -f"
-    }
-}
-```
-
-## Troubleshooting
-
-### Zone Not Found
-
-**Symptom:** "Zone 'xyz' not found"
-
-**Solutions:**
-- Check spelling: `sz` lists available zones
-- Check config location: `~/.config/szpaner/zones.conf`
-- Reload tmux: `tmux source-file ~/.tmux.conf`
-- Check syntax: look for missing quotes or braces
-
-### Commands Not Executing
-
-**Symptom:** Pane opens but command doesn't run
-
-**Solutions:**
-- Check quotes: `execute "nvim"` not `execute nvim`
-- Check PATH: command available in shell?
-- For complex commands, use multiple `execute` lines
-- Check working_dir is valid
-
-### Layout Looks Wrong
-
-**Symptom:** Panes sizes don't match saved layout
-
-**Solutions:**
-- Terminal size different? Layouts are pixel-based
-- Layout string might be stale: save again with `Prefix+S`
-- For flexible layouts, use manual splits instead of layout strings
-
-### Duplicate Zone Name
-
-**Symptom:** "Zone already exists"
-
-**Solutions:**
-- When saving with `Prefix+S`, plugin auto-adds suffix: `myzone-2`
-- Or manually rename in config file
-
-## Advanced Tips
-
-### Testing Zones
-
-Before saving to config:
-```bash
-# Edit config
-vim ~/.config/szpaner/zones.conf
-
-# Reload tmux config
-tmux source-file ~/.tmux.conf
-
-# Test zone
-Prefix+Z → type zone name
-```
-
-### Quick Edits
-
-From inside tmux:
+**Edit config from tmux:**
 ```
 :split-window -h "vim ~/.config/szpaner/zones.conf"
 ```
 
-### Viewing Parsed Config
-
-```bash
-cd ~/.tmux/plugins/szpaner
-bash -c 'source scripts/parse-config.sh && parse_config_file ~/.config/szpaner/zones.conf && print_config'
+**Test after editing:**
+```
+:source-file ~/.tmux.conf
+Prefix+Z → type zone name
 ```
 
-### Backup Your Zones
-
+**Version control your zones:**
 ```bash
-cp ~/.config/szpaner/zones.conf ~/.config/szpaner/zones.conf.backup
+cd ~/.config/szpaner && git init && git add zones.conf
 ```
 
-Or use git:
-```bash
-cd ~/.config/szpaner
-git init
-git add zones.conf
-git commit -m "My zones"
-```
+**Common gotchas:**
+- Zone names must be quoted: `zone "dev"` not `zone dev`
+- Execute commands need quotes: `execute "nvim"` not `execute nvim`
+- Layout strings ignore `split` and `size` properties
+- First pane doesn't need `split` property
 
 ---
 
