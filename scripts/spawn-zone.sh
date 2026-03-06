@@ -177,12 +177,26 @@ spawn_zone() {
 
         # Execute all commands for this pane
         local cmd_count=${pane_command_count[$pane_key]:-0}
-        for ((j=0; j<cmd_count; j++)); do
-            local command="${pane_commands[$pane_key.$j]}"
-            if [[ -n "$command" ]]; then
-                tmux send-keys -t "$target.$actual_index" "$command" C-m
+
+        if [[ $cmd_count -gt 0 ]]; then
+            # Build command chain with && to ensure each waits for previous
+            local cmd_chain=""
+            for ((j=0; j<cmd_count; j++)); do
+                local command="${pane_commands[$pane_key.$j]}"
+                if [[ -n "$command" ]]; then
+                    if [[ -z "$cmd_chain" ]]; then
+                        cmd_chain="$command"
+                    else
+                        cmd_chain="$cmd_chain && $command"
+                    fi
+                fi
+            done
+
+            # Send the entire chain as one command
+            if [[ -n "$cmd_chain" ]]; then
+                tmux send-keys -t "$target.$actual_index" "$cmd_chain" C-m
             fi
-        done
+        fi
     done
 
     # Execute on_start hook if defined

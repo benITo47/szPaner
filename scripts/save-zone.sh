@@ -264,5 +264,5 @@ save_zone() {
 
 # Run if executed directly or via run-shell
 if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
-    save_zone "$1"
+    save_zone "$1" "$2"
 fi
